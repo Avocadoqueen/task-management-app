@@ -30,8 +30,8 @@ Task Management App is a web-based system for organizing coursework and assignme
 ## Scripts
 Run from the repo root:
 - `pnpm dev` - Start frontend and backend in dev mode
-- `pnpm dev:frontend` - Start only the frontend
-- `pnpm dev:backend` - Start only the backend
+- `pnpm --filter frontend dev` - Start only the frontend
+- `pnpm --filter backend dev` - Start only the backend
 - `pnpm build` - Build both apps
 - `pnpm start` - Start both apps
 - `pnpm test` - Run tests
