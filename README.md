@@ -35,3 +35,17 @@ Run from the repo root:
 - `pnpm build` - Build both apps
 - `pnpm start` - Start both apps
 - `pnpm test` - Run tests
+
+- Contributing
+If anyone wants to help improve this project:
+Fork the repository
+Create a feature branch
+git checkout -b feature/awesome-feature
+Make changes
+Push branch and open a Pull Request
+
+ License
+Distributed under the MIT License.
+ 
+ Author
+Eniola — Engineering Student
