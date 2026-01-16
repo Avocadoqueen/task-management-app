@@ -1,7 +1,7 @@
 "use client"
 
 import { useAuth } from "@/contexts/auth-context"
-import { mockTasks, mockCourses } from "@/frontend/lib/tasks"
+import { mockCourses, type Task, getTasks, updateTask } from "@/frontend/lib/tasks"
 import { DashboardStats } from "@/frontend/components/student/dashboard-stats"
 import { TaskCard } from "@/frontend/components/student/task-card"
 import { UpcomingDeadlines } from "@/frontend/components/student/upcoming-deadlines"
@@ -10,16 +10,37 @@ import { NotificationBell } from "@/frontend/components/notifications/notificati
 import { Card, CardContent, CardHeader, CardTitle } from "@/frontend/components/ui/card"
 import { Button } from "@/frontend/components/ui/button"
 import { Badge } from "@/frontend/components/ui/badge"
+import { Progress } from "@/frontend/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/frontend/components/ui/tabs"
 import { LogOut, BookOpen, Filter, Plus } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 export default function StudentDashboard() {
   const { user, logout } = useAuth()
-  const [tasks, setTasks] = useState(mockTasks)
+  const [tasks, setTasks] = useState<Task[]>([])
   const [selectedFilter, setSelectedFilter] = useState<"all" | "pending" | "in-progress" | "completed" | "overdue">(
     "all",
   )
+  const [isTasksLoading, setIsTasksLoading] = useState(true)
+
+  useEffect(() => {
+    if (!user || user.role !== "student") return
+    let mounted = true
+    setIsTasksLoading(true)
+    getTasks(user.id)
+      .then((data) => {
+        if (mounted) setTasks(data)
+      })
+      .catch((error) => {
+        console.error("Failed to load tasks", error)
+      })
+      .finally(() => {
+        if (mounted) setIsTasksLoading(false)
+      })
+    return () => {
+      mounted = false
+    }
+  }, [user])
 
   if (!user || user.role !== "student") {
     return (
@@ -32,10 +53,26 @@ export default function StudentDashboard() {
     )
   }
 
-  const handleStatusChange = (taskId: string, newStatus: any) => {
-    setTasks((prevTasks) =>
-      prevTasks.map((task) => (task.id === taskId ? { ...task, status: newStatus, updatedAt: new Date() } : task)),
-    )
+  const handleStatusChange = async (taskId: string, newStatus: Task["status"]) => {
+    if (!user) return
+    try {
+      await updateTask(user.id, taskId, { status: newStatus })
+      const refreshed = await getTasks(user.id)
+      setTasks(refreshed)
+    } catch (error) {
+      console.error("Failed to update task status", error)
+    }
+  }
+
+  const handleSubmission = async (taskId: string, submissionUrl: string) => {
+    if (!user) return
+    try {
+      await updateTask(user.id, taskId, { submissionUrl, status: "completed" })
+      const refreshed = await getTasks(user.id)
+      setTasks(refreshed)
+    } catch (error) {
+      console.error("Failed to submit assignment", error)
+    }
   }
 
   const filteredTasks = tasks.filter((task) => {
@@ -45,6 +82,8 @@ export default function StudentDashboard() {
     }
     return task.status === selectedFilter
   })
+  const submittedCount = tasks.filter((task) => Boolean(task.submissionUrl)).length
+  const completionRate = tasks.length ? (submittedCount / tasks.length) * 100 : 0
 
   return (
     <div className="min-h-screen bg-background">
@@ -76,7 +115,7 @@ export default function StudentDashboard() {
             <p className="text-muted-foreground">Here's an overview of your academic tasks and deadlines.</p>
           </div>
 
-          <DeadlineAlerts />
+          <DeadlineAlerts tasks={tasks} isLoading={isTasksLoading} />
 
           {/* Dashboard Stats */}
           <DashboardStats tasks={tasks} />
@@ -118,11 +157,16 @@ export default function StudentDashboard() {
                         {filteredTasks.length === 0 ? (
                           <div className="text-center py-8 text-muted-foreground">
                             <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                            <p>No tasks found for the selected filter.</p>
+                            <p>{isTasksLoading ? "Loading tasks..." : "No tasks found for the selected filter."}</p>
                           </div>
                         ) : (
                           filteredTasks.map((task) => (
-                            <TaskCard key={task.id} task={task} onStatusChange={handleStatusChange} />
+                            <TaskCard
+                              key={task.id}
+                              task={task}
+                              onStatusChange={handleStatusChange}
+                              onSubmitAssignment={handleSubmission}
+                            />
                           ))
                         )}
                       </div>
@@ -136,6 +180,55 @@ export default function StudentDashboard() {
             <div className="space-y-6">
               {/* Upcoming Deadlines */}
               <UpcomingDeadlines tasks={tasks} />
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between text-base">
+                    Today&apos;s Focus
+                    <span className="text-xs text-muted-foreground">
+                      {tasks.filter((task) => task.status !== "completed").length} active
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {tasks
+                    .filter((task) => task.status !== "completed")
+                    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+                    .slice(0, 3)
+                    .map((task) => (
+                      <div key={task.id} className="flex items-center justify-between rounded-md border px-3 py-2">
+                        <div>
+                          <p className="text-sm font-medium">{task.title}</p>
+                          <p className="text-xs text-muted-foreground">{task.course}</p>
+                        </div>
+                        <Badge variant="outline" className="text-xs">
+                          {new Date(task.dueDate).toLocaleDateString()}
+                        </Badge>
+                      </div>
+                    ))}
+                  {tasks.filter((task) => task.status !== "completed").length === 0 && (
+                    <p className="text-sm text-muted-foreground">No active tasks. You&apos;re all caught up.</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between text-base">
+                    Submission Progress
+                    <span className="text-sm text-muted-foreground">
+                      {submittedCount}/{tasks.length}
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Progress value={completionRate} className="h-2" />
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Submitted</span>
+                    <span>{completionRate.toFixed(0)}%</span>
+                  </div>
+                </CardContent>
+              </Card>
 
               {/* Courses */}
               <Card>

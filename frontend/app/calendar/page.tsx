@@ -28,9 +28,18 @@ export default function CalendarPage() {
   }, [user, isLoading, router])
 
   useEffect(() => {
-    if (user) {
-      const allTasks = getTasks(user.id)
-      setTasks(allTasks)
+    if (!user) return
+    let mounted = true
+    ;(async () => {
+      try {
+        const allTasks = await getTasks(user.id)
+        if (mounted) setTasks(allTasks)
+      } catch (error) {
+        console.error("Failed to load tasks", error)
+      }
+    })()
+    return () => {
+      mounted = false
     }
   }, [user])
 
@@ -38,11 +47,14 @@ export default function CalendarPage() {
     return null
   }
 
-  const handleTaskUpdate = (taskId: string, updates: Partial<Task>) => {
-    const updated = updateTask(user.id, taskId, updates)
-    if (updated) {
-      setTasks(getTasks(user.id))
+  const handleTaskUpdate = async (taskId: string, updates: Partial<Task>) => {
+    try {
+      await updateTask(user.id, taskId, updates)
+      const refreshed = await getTasks(user.id)
+      setTasks(refreshed)
       setIsDialogOpen(false)
+    } catch (error) {
+      console.error("Failed to update task", error)
     }
   }
 

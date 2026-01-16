@@ -154,55 +154,77 @@ export const getStatusColor = (status: TaskStatus) => {
   }
 }
 
-export const getTasks = (userId: string): Task[] => {
-  if (typeof window === "undefined") return mockTasks
-  const stored = localStorage.getItem(`tasks_${userId}`)
-  return stored
-    ? JSON.parse(stored, (key, value) => {
-        if (key === "dueDate" || key === "createdAt" || key === "updatedAt") {
-          return new Date(value)
-        }
-        return value
-      })
-    : mockTasks
+import api from "./api"
+
+type ApiTask = {
+  id: string | number
+  title: string
+  description?: string | null
+  dueDate?: string | null
+  status?: TaskStatus | null
+  priority?: TaskPriority | null
+  course?: string | null
+  assignedBy?: string | null
+  createdAt?: string | null
+  updatedAt?: string | null
+  submissionUrl?: string | null
+  grade?: number | null
+  feedback?: string | null
 }
 
-export const saveTasks = (userId: string, tasks: Task[]) => {
-  if (typeof window === "undefined") return
-  localStorage.setItem(`tasks_${userId}`, JSON.stringify(tasks))
+const normalizeTask = (task: ApiTask): Task => {
+  const createdAt = task.createdAt ? new Date(task.createdAt) : new Date()
+  const updatedAt = task.updatedAt ? new Date(task.updatedAt) : createdAt
+  const dueDate = task.dueDate ? new Date(task.dueDate) : createdAt
+  return {
+    id: String(task.id),
+    title: task.title,
+    description: task.description ?? "",
+    dueDate,
+    status: task.status ?? "pending",
+    priority: task.priority ?? "medium",
+    course: task.course ?? "General",
+    assignedBy: task.assignedBy ?? "Unassigned",
+    createdAt,
+    updatedAt,
+    submissionUrl: task.submissionUrl ?? undefined,
+    grade: task.grade ?? undefined,
+    feedback: task.feedback ?? undefined,
+  }
 }
 
-export const createTask = (userId: string, task: Omit<Task, "id" | "createdAt" | "updatedAt">): Task => {
-  const tasks = getTasks(userId)
-  const newTask: Task = {
+export const getTasks = async (userId: string): Promise<Task[]> => {
+  // call backend
+  const data = await api.get(`/api/tasks?userId=${encodeURIComponent(userId)}`)
+  return data.map((t: ApiTask) => normalizeTask(t))
+}
+
+export const getAllTasks = async (): Promise<Task[]> => {
+  const data = await api.get(`/api/tasks`)
+  return data.map((t: ApiTask) => normalizeTask(t))
+}
+
+export const createTask = async (userId: string, task: Omit<Task, "id" | "createdAt" | "updatedAt">): Promise<Task> => {
+  const payload = {
     ...task,
-    id: Date.now().toString(),
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    userId: Number.isFinite(Number(userId)) ? Number(userId) : userId,
+    dueDate: task.dueDate ? new Date(task.dueDate).toISOString() : undefined,
   }
-  saveTasks(userId, [...tasks, newTask])
-  return newTask
+  const created = await api.post(`/api/tasks`, payload)
+  return normalizeTask(created)
 }
 
-export const updateTask = (userId: string, taskId: string, updates: Partial<Task>): Task | null => {
-  const tasks = getTasks(userId)
-  const index = tasks.findIndex((t) => t.id === taskId)
-  if (index === -1) return null
-
-  const updatedTask = {
-    ...tasks[index],
+export const updateTask = async (userId: string, taskId: string, updates: Partial<Task>): Promise<Task | null> => {
+  const payload = {
     ...updates,
-    updatedAt: new Date(),
+    userId: Number.isFinite(Number(userId)) ? Number(userId) : userId,
+    dueDate: updates.dueDate ? new Date(updates.dueDate).toISOString() : updates.dueDate,
   }
-  tasks[index] = updatedTask
-  saveTasks(userId, tasks)
-  return updatedTask
+  const updated = await api.put(`/api/tasks/${taskId}`, payload)
+  return normalizeTask(updated)
 }
 
-export const deleteTask = (userId: string, taskId: string): boolean => {
-  const tasks = getTasks(userId)
-  const filtered = tasks.filter((t) => t.id !== taskId)
-  if (filtered.length === tasks.length) return false
-  saveTasks(userId, filtered)
+export const deleteTask = async (userId: string, taskId: string): Promise<boolean> => {
+  await api.del(`/api/tasks/${taskId}`)
   return true
 }

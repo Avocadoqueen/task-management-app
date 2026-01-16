@@ -5,7 +5,7 @@ import { createContext, useContext, useEffect, useState } from "react"
 import { type User, type AuthState, authService } from "@/frontend/lib/auth"
 
 interface AuthContextType extends AuthState {
-  login: (studentNumber: string, password: string) => Promise<void>
+  login: (studentNumber: string, password: string) => Promise<User>
   logout: () => Promise<void>
 }
 
@@ -30,6 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const user = await authService.login(studentNumber, password)
       console.log("[v0] Login service returned user:", user)
       setUser(user)
+      return user
     } catch (error) {
       console.log("[v0] Login error in context:", error)
       throw error

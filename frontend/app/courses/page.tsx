@@ -17,8 +17,12 @@ export default function CoursesPage() {
   const courses = getCourses()
 
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.push("/login")
+    if (!isLoading) {
+      if (!user) {
+        router.push("/login")
+      } else if (user.role !== "student") {
+        router.push("/teacher")
+      }
     }
   }, [user, isLoading, router])
 

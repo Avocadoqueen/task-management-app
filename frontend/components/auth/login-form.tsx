@@ -25,9 +25,11 @@ export function LoginForm() {
     console.log("[v0] Login attempt with:", studentNumber)
 
     try {
-      await login(studentNumber, password)
-      console.log("[v0] Login successful, redirecting to /courses")
-      router.push("/courses")
+      const user = await login(studentNumber, password)
+      const redirect =
+        user.role === "lecturer" ? "/teacher" : user.role === "admin" ? "/admin" : "/courses"
+      console.log("[v0] Login successful, redirecting to", redirect)
+      router.push(redirect)
     } catch (err) {
       console.log("[v0] Login error:", err)
       setError(err instanceof Error ? err.message : "Login failed")

@@ -4,17 +4,29 @@ import { type Task, getPriorityColor, getStatusColor } from "@/frontend/lib/task
 import { Card, CardContent, CardHeader, CardTitle } from "@/frontend/components/ui/card"
 import { Badge } from "@/frontend/components/ui/badge"
 import { Button } from "@/frontend/components/ui/button"
-import { Calendar, Clock, User, BookOpen, CheckCircle, Circle, PlayCircle } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/frontend/components/ui/dialog"
+import { Input } from "@/frontend/components/ui/input"
+import { Label } from "@/frontend/components/ui/label"
+import { Calendar, Clock, User, BookOpen, CheckCircle, Circle, PlayCircle, Upload, Link2 } from "lucide-react"
 import { format } from "date-fns"
+import { useEffect, useState } from "react"
 
 interface TaskCardProps {
   task: Task
   onStatusChange?: (taskId: string, newStatus: Task["status"]) => void
+  onSubmitAssignment?: (taskId: string, submissionUrl: string) => void
 }
 
-export function TaskCard({ task, onStatusChange }: TaskCardProps) {
+export function TaskCard({ task, onStatusChange, onSubmitAssignment }: TaskCardProps) {
   const isOverdue = new Date(task.dueDate) < new Date() && task.status !== "completed"
+  const isPastDue = new Date(task.dueDate) < new Date()
   const daysUntilDue = Math.ceil((new Date(task.dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+  const [isSubmitOpen, setIsSubmitOpen] = useState(false)
+  const [submissionUrl, setSubmissionUrl] = useState(task.submissionUrl ?? "")
+
+  useEffect(() => {
+    setSubmissionUrl(task.submissionUrl ?? "")
+  }, [task.submissionUrl])
 
   const getStatusIcon = (status: Task["status"]) => {
     switch (status) {
@@ -31,6 +43,13 @@ export function TaskCard({ task, onStatusChange }: TaskCardProps) {
     if (onStatusChange) {
       onStatusChange(task.id, newStatus)
     }
+  }
+
+  const handleSubmit = () => {
+    const trimmed = submissionUrl.trim()
+    if (!trimmed || !onSubmitAssignment) return
+    onSubmitAssignment(task.id, trimmed)
+    setIsSubmitOpen(false)
   }
 
   return (
@@ -83,8 +102,25 @@ export function TaskCard({ task, onStatusChange }: TaskCardProps) {
           </div>
         )}
 
+        {task.submissionUrl && (
+          <div className="flex items-center justify-between rounded-md border bg-muted/40 px-3 py-2 text-sm">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Link2 className="h-4 w-4" />
+              <span>Submission attached</span>
+            </div>
+            <a
+              href={task.submissionUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-primary hover:underline"
+            >
+              View
+            </a>
+          </div>
+        )}
+
         {task.status !== "completed" && (
-          <div className="flex gap-2 pt-2">
+          <div className="flex flex-wrap gap-2 pt-2">
             {task.status === "pending" && (
               <Button
                 size="sm"
@@ -106,6 +142,37 @@ export function TaskCard({ task, onStatusChange }: TaskCardProps) {
                 Complete
               </Button>
             )}
+            <Dialog open={isSubmitOpen} onOpenChange={setIsSubmitOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="outline" disabled={isPastDue} className="border-primary/30">
+                  <Upload className="h-4 w-4 mr-1" />
+                  {task.submissionUrl ? "Update Submission" : "Submit"}
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Submit Assignment</DialogTitle>
+                  <DialogDescription>Upload a link or file path for {task.title}.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  {isPastDue && <p className="text-sm text-red-600">This task is closed (deadline passed).</p>}
+                  <div className="space-y-2">
+                    <Label htmlFor={`submission-${task.id}`}>Submission Link</Label>
+                    <Input
+                      id={`submission-${task.id}`}
+                      placeholder="https://drive.google.com/..."
+                      value={submissionUrl}
+                      onChange={(e) => setSubmissionUrl(e.target.value)}
+                      disabled={isPastDue}
+                    />
+                  </div>
+                  <Button onClick={handleSubmit} disabled={!submissionUrl.trim() || isPastDue} className="w-full">
+                    <Upload className="h-4 w-4 mr-2" />
+                    Submit
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         )}
       </CardContent>

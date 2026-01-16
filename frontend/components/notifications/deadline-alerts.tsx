@@ -1,19 +1,26 @@
 "use client"
 
 import { useAuth } from "@/contexts/auth-context"
-import { mockTasks, getUpcomingTasks, getOverdueTasks } from "@/frontend/lib/tasks"
+import { getUpcomingTasks, getOverdueTasks, type Task } from "@/frontend/lib/tasks"
 import { Card, CardContent, CardHeader, CardTitle } from "@/frontend/components/ui/card"
 import { Badge } from "@/frontend/components/ui/badge"
 import { AlertTriangle, Clock } from "lucide-react"
 import { format, differenceInDays } from "date-fns"
 
-export function DeadlineAlerts() {
+interface DeadlineAlertsProps {
+  tasks?: Task[]
+  isLoading?: boolean
+}
+
+export function DeadlineAlerts({ tasks = [], isLoading = false }: DeadlineAlertsProps) {
   const { user } = useAuth()
 
   if (!user || user.role !== "student") return null
 
-  const upcomingTasks = getUpcomingTasks(mockTasks, 3) // Next 3 days
-  const overdueTasks = getOverdueTasks(mockTasks)
+  if (isLoading) return null
+
+  const upcomingTasks = getUpcomingTasks(tasks, 3) // Next 3 days
+  const overdueTasks = getOverdueTasks(tasks)
 
   if (upcomingTasks.length === 0 && overdueTasks.length === 0) return null
 

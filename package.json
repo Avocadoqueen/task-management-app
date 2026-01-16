@@ -1,0 +1,17 @@
+{
+  "name": "task-management-app",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "pnpm -w -r run dev",
+    "dev:frontend": "pnpm --filter frontend dev",
+    "dev:backend": "pnpm --filter backend dev",
+    "build": "pnpm -w -r run build",
+    "start": "pnpm -w -r run start",
+    "test": "pnpm -w -r run test"
+  }
+}

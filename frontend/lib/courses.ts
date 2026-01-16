@@ -175,13 +175,19 @@ export function submitAssignment(courseId: string, taskId: string, submissionUrl
   if (course) {
     const task = course.tasks.find((t) => t.id === taskId)
     if (task) {
+      const isPastDue = new Date(task.dueDate) < new Date()
+      if (isPastDue) {
+        return null
+      }
       task.status = "completed"
       task.submissionUrl = submissionUrl // Save the submission URL
       if (typeof window !== "undefined") {
         localStorage.setItem("courses", JSON.stringify(mockCourses))
       }
+      return task
     }
   }
+  return null
 }
 
 export function addTask(courseId: string, task: Omit<Task, "id">) {

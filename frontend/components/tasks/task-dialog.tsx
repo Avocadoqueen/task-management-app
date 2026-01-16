@@ -15,7 +15,8 @@ interface TaskDialogProps {
   isOpen: boolean
   onClose: () => void
   task: Task | null
-  onSave: (task: Partial<Task>) => void
+  // accept any payload; callers are responsible for correct shape
+  onSave: (task: any) => void
 }
 
 export function TaskDialog({ isOpen, onClose, task, onSave }: TaskDialogProps) {

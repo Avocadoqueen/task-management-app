@@ -15,8 +15,12 @@ export default function TeacherDashboard() {
   const router = useRouter()
 
   useEffect(() => {
-    if (!isLoading && (!user || user.role !== "lecturer")) {
-      router.push("/login")
+    if (!isLoading) {
+      if (!user) {
+        router.push("/login")
+      } else if (user.role !== "lecturer") {
+        router.push("/courses")
+      }
     }
   }, [user, isLoading, router])
 

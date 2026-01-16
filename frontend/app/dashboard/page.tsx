@@ -23,9 +23,18 @@ export default function DashboardPage() {
   }, [user, isLoading, router])
 
   useEffect(() => {
-    if (user) {
-      const allTasks = getTasks(user.id)
-      setTasks(allTasks)
+    if (!user) return
+    let mounted = true
+    ;(async () => {
+      try {
+        const allTasks = await getTasks(user.id)
+        if (mounted) setTasks(allTasks)
+      } catch (error) {
+        console.error("Failed to load tasks", error)
+      }
+    })()
+    return () => {
+      mounted = false
     }
   }, [user])
 

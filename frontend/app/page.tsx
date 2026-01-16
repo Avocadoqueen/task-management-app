@@ -12,11 +12,8 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!isLoading && user) {
-      if (user.role === "lecturer") {
-        router.push("/teacher")
-      } else {
-        router.push("/courses")
-      }
+      const redirect = user.role === "lecturer" ? "/teacher" : user.role === "admin" ? "/admin" : "/courses"
+      router.push(redirect)
     }
   }, [user, isLoading, router])
 

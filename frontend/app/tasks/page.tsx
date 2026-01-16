@@ -30,9 +30,19 @@ export default function TasksPage() {
   }, [user, isLoading, router])
 
   useEffect(() => {
-    if (user) {
-      const allTasks = getTasks(user.id)
-      setTasks(allTasks)
+    if (!user) return
+    let mounted = true
+    ;(async () => {
+      try {
+        const allTasks = await getTasks(user.id)
+        if (mounted) setTasks(allTasks)
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error("Failed to load tasks", e)
+      }
+    })()
+    return () => {
+      mounted = false
     }
   }, [user])
 
@@ -40,23 +50,40 @@ export default function TasksPage() {
     return null
   }
 
-  const handleTaskUpdate = (taskId: string, updates: Partial<Task>) => {
-    const updated = updateTask(user.id, taskId, updates)
-    if (updated) {
-      setTasks(getTasks(user.id))
+  const handleTaskUpdate = async (taskId: string, updates: Partial<Task>) => {
+    try {
+      const updated = await updateTask(user.id, taskId, updates)
+      if (updated) {
+        const all = await getTasks(user.id)
+        setTasks(all)
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error(e)
     }
   }
 
-  const handleTaskDelete = (taskId: string) => {
-    if (deleteTask(user.id, taskId)) {
-      setTasks(getTasks(user.id))
+  const handleTaskDelete = async (taskId: string) => {
+    try {
+      await deleteTask(user.id, taskId)
+      const all = await getTasks(user.id)
+      setTasks(all)
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error(e)
     }
   }
 
-  const handleTaskCreate = (task: Omit<Task, "id" | "createdAt" | "updatedAt">) => {
-    createTask(user.id, task)
-    setTasks(getTasks(user.id))
-    setIsDialogOpen(false)
+  const handleTaskCreate = async (task: Omit<Task, "id" | "createdAt" | "updatedAt">) => {
+    try {
+      await createTask(user.id, task)
+      const all = await getTasks(user.id)
+      setTasks(all)
+      setIsDialogOpen(false)
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error(e)
+    }
   }
 
   const filteredTasks = tasks.filter(

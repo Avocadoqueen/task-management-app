@@ -31,8 +31,12 @@ export default function CourseDetailPage() {
   const [submissionFile, setSubmissionFile] = useState<string>("")
 
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.push("/login")
+    if (!isLoading) {
+      if (!user) {
+        router.push("/login")
+      } else if (user.role !== "student") {
+        router.push("/teacher")
+      }
     }
   }, [user, isLoading, router])
 
@@ -86,6 +90,8 @@ export default function CourseDetailPage() {
         return "bg-gray-100 text-gray-700"
     }
   }
+
+  const isPastDue = (dueDate: string) => new Date(dueDate) < new Date()
 
   return (
     <div className="min-h-screen bg-white">
@@ -172,9 +178,13 @@ export default function CourseDetailPage() {
                         onOpenChange={(open) => setSelectedTask(open ? task.id : null)}
                       >
                         <DialogTrigger asChild>
-                          <Button size="sm" className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            className="flex items-center gap-2"
+                            disabled={isPastDue(task.dueDate)}
+                          >
                             <Upload className="w-4 h-4" />
-                            Submit
+                            {isPastDue(task.dueDate) ? "Closed" : "Submit"}
                           </Button>
                         </DialogTrigger>
                         <DialogContent>
@@ -183,6 +193,9 @@ export default function CourseDetailPage() {
                             <DialogDescription>Submit your work for {task.title}</DialogDescription>
                           </DialogHeader>
                           <div className="space-y-4 py-4">
+                            {isPastDue(task.dueDate) && (
+                              <div className="text-sm text-red-600">This assignment is closed (deadline passed).</div>
+                            )}
                             <div className="space-y-2">
                               <Label htmlFor="submission">Assignment File or Link</Label>
                               <Input
@@ -190,11 +203,12 @@ export default function CourseDetailPage() {
                                 placeholder="Enter file link or upload path..."
                                 value={submissionFile}
                                 onChange={(e) => setSubmissionFile(e.target.value)}
+                                disabled={isPastDue(task.dueDate)}
                               />
                             </div>
                             <Button
                               onClick={() => handleSubmitAssignment(task.id)}
-                              disabled={!submissionFile}
+                              disabled={!submissionFile || isPastDue(task.dueDate)}
                               className="w-full"
                             >
                               <Check className="w-4 h-4 mr-2" />

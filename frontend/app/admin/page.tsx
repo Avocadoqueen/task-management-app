@@ -9,6 +9,7 @@ import {
   getTopPerformingCourses,
   getRecentUserActivity,
 } from "@/frontend/lib/admin"
+import { getAllTasks, type Task } from "@/frontend/lib/tasks"
 import { SystemOverview } from "@/frontend/components/admin/system-overview"
 import { CourseAnalyticsTable } from "@/frontend/components/admin/course-analytics-table"
 import { PerformanceChart } from "@/frontend/components/admin/performance-chart"
@@ -18,9 +19,11 @@ import { Button } from "@/frontend/components/ui/button"
 import { Badge } from "@/frontend/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/frontend/components/ui/tabs"
 import { LogOut, BarChart3, Download, RefreshCw } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth()
+  const [tasks, setTasks] = useState<Task[]>([])
 
   if (!user || user.role !== "admin") {
     return (
@@ -35,6 +38,38 @@ export default function AdminDashboard() {
 
   const topCourses = getTopPerformingCourses()
   const recentActivity = getRecentUserActivity()
+  const now = new Date()
+  const taskStats = useMemo(() => {
+    if (tasks.length === 0) {
+      return null
+    }
+    const completed = tasks.filter((task) => task.status === "completed").length
+    const pending = tasks.filter((task) => task.status === "pending").length
+    const overdue = tasks.filter((task) => new Date(task.dueDate) < now && task.status !== "completed").length
+    const total = tasks.length
+    return {
+      totalTasks: total,
+      completedTasks: completed,
+      pendingTasks: pending,
+      overdueTasks: overdue,
+      averageCompletionRate: total ? (completed / total) * 100 : 0,
+    }
+  }, [tasks, now])
+
+  useEffect(() => {
+    if (!user || user.role !== "admin") return
+    let mounted = true
+    getAllTasks()
+      .then((data) => {
+        if (mounted) setTasks(data)
+      })
+      .catch((error) => {
+        console.error("Failed to load tasks", error)
+      })
+    return () => {
+      mounted = false
+    }
+  }, [user])
 
   return (
     <div className="min-h-screen bg-background">
@@ -77,7 +112,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* System Overview */}
-          <SystemOverview stats={mockSystemStats} />
+          <SystemOverview stats={taskStats ? { ...mockSystemStats, ...taskStats } : mockSystemStats} />
 
           {/* Main Analytics */}
           <Tabs defaultValue="overview" className="space-y-6">

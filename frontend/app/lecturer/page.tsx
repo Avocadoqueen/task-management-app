@@ -1,7 +1,7 @@
 "use client"
 
 import { useAuth } from "@/contexts/auth-context"
-import { mockTasks, type Task } from "@/frontend/lib/tasks"
+import { createTask, getTasks, type Task } from "@/frontend/lib/tasks"
 import { getClassStats, getRecentSubmissions, getPendingGrading } from "@/frontend/lib/lecturer"
 import { TaskCreationForm } from "@/frontend/components/lecturer/task-creation-form"
 import { SubmissionCard } from "@/frontend/components/lecturer/submission-card"
@@ -12,13 +12,14 @@ import { Button } from "@/frontend/components/ui/button"
 import { Badge } from "@/frontend/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/frontend/components/ui/tabs"
 import { LogOut, Users, Plus, BookOpen, Clock, CheckCircle } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 export default function LecturerDashboard() {
   const { user, logout } = useAuth()
-  const [tasks, setTasks] = useState(mockTasks)
+  const [tasks, setTasks] = useState<Task[]>([])
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+  const [isLoadingTasks, setIsLoadingTasks] = useState(true)
 
   if (!user || user.role !== "lecturer") {
     return (
@@ -31,17 +32,39 @@ export default function LecturerDashboard() {
     )
   }
 
-  const handleCreateTask = (taskData: any) => {
-    const newTask: Task = {
-      id: Date.now().toString(),
-      ...taskData,
-      status: "pending" as const,
-      assignedBy: user.name,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+  useEffect(() => {
+    if (!user || user.role !== "lecturer") return
+    let mounted = true
+    setIsLoadingTasks(true)
+    getTasks(user.id)
+      .then((data) => {
+        if (mounted) setTasks(data)
+      })
+      .catch((error) => {
+        console.error("Failed to load tasks", error)
+      })
+      .finally(() => {
+        if (mounted) setIsLoadingTasks(false)
+      })
+    return () => {
+      mounted = false
     }
-    setTasks([newTask, ...tasks])
-    setShowCreateForm(false)
+  }, [user])
+
+  const handleCreateTask = async (taskData: any) => {
+    if (!user) return
+    try {
+      await createTask(user.id, {
+        ...taskData,
+        status: "pending",
+        assignedBy: user.name,
+      })
+      const refreshed = await getTasks(user.id)
+      setTasks(refreshed)
+      setShowCreateForm(false)
+    } catch (error) {
+      console.error("Failed to create task", error)
+    }
   }
 
   const handleGradeSubmission = (submissionId: string, grade: number, feedback: string) => {
@@ -148,31 +171,43 @@ export default function LecturerDashboard() {
               )}
 
               <div className="grid gap-4">
-                {myTasks.map((task) => (
-                  <Card key={task.id} className="cursor-pointer hover:shadow-md transition-all">
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <CardTitle className="text-lg">{task.title}</CardTitle>
-                          <p className="text-sm text-muted-foreground mt-1">{task.course}</p>
-                        </div>
-                        <div className="flex gap-2">
-                          <Badge variant="outline">{task.priority}</Badge>
-                          <Badge variant="outline">{task.status}</Badge>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-muted-foreground mb-4">{task.description}</p>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Due: {new Date(task.dueDate).toLocaleDateString()}</span>
-                        <Button variant="outline" size="sm" onClick={() => setSelectedTask(task)}>
-                          View Submissions
-                        </Button>
-                      </div>
+                {isLoadingTasks ? (
+                  <Card>
+                    <CardContent className="text-center py-8 text-muted-foreground">Loading assignments...</CardContent>
+                  </Card>
+                ) : myTasks.length === 0 ? (
+                  <Card>
+                    <CardContent className="text-center py-8 text-muted-foreground">
+                      No assignments yet. Create your first one.
                     </CardContent>
                   </Card>
-                ))}
+                ) : (
+                  myTasks.map((task) => (
+                    <Card key={task.id} className="cursor-pointer hover:shadow-md transition-all">
+                      <CardHeader>
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <CardTitle className="text-lg">{task.title}</CardTitle>
+                            <p className="text-sm text-muted-foreground mt-1">{task.course}</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Badge variant="outline">{task.priority}</Badge>
+                            <Badge variant="outline">{task.status}</Badge>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm text-muted-foreground mb-4">{task.description}</p>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm">Due: {new Date(task.dueDate).toLocaleDateString()}</span>
+                          <Button variant="outline" size="sm" onClick={() => setSelectedTask(task)}>
+                            View Submissions
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
               </div>
             </TabsContent>
 
